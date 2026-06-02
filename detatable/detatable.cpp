@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <random>
 #include <memory>
+#include <vector>
 #include "Enemy.h"
 #include "EnemyFactory.h"
 #include "EnemyData.h"
@@ -30,57 +31,78 @@ int main()
 		return 0;
 	}
 
-	int totalHP = 0;
-	int totalATK = 0;
-	for (int i = 0; i < tableSize; ++i)
-	{
-		const EnemyData* d = EnemyFactory::GetEnemyDataByIndex(i);
-		if (d)
-		{
-			totalHP += d->HP;
-			totalATK += d->ATK;
-		}
-	}
-
-	// ランダムで 1 体の ID を選び、unique_ptr で生成して表示
+	// ランダムに4体生成（重複あり）。生成と同時に合計を計算する
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<> dist(0, tableSize - 1);
-	int chosenIndex = dist(gen);
 
-	const EnemyData* chosenData = EnemyFactory::GetEnemyDataByIndex(chosenIndex);
-	if (!chosenData)
+	std::vector<std::unique_ptr<Enemy>> enemies;
+	enemies.reserve(4);
+
+	int totalHP = 0;
+	int totalATK = 0;
+
+	for (int i = 0; i < 4; ++i)
 	{
-		std::cout << "敵の選択に失敗しました。" << std::endl;
-		return 0;
+		int idx = dist(gen);
+		const EnemyData* d = EnemyFactory::GetEnemyDataByIndex(idx);
+		if (!d)
+		{
+			std::cout << "敵データの取得に失敗しました (index=" << idx << ")。" << std::endl;
+			continue;
+		}
+
+		std::unique_ptr<Enemy> e = EnemyFactory::CreateEnemy(d->ID);
+		if (!e)
+		{
+			std::cout << "敵インスタンスの生成に失敗しました (ID=" << d->ID << ")。" << std::endl;
+			continue;
+		}
+
+		// 生成と同時に合計値に加算
+		totalHP += e->Data.HP;
+		totalATK += e->Data.ATK;
+
+		enemies.push_back(std::move(e));
 	}
 
-	// CreateEnemy は std::unique_ptr<Enemy> を返す想定
-	std::unique_ptr<Enemy> chosenEnemy = EnemyFactory::CreateEnemy(chosenData->ID);
-	if (!chosenEnemy)
+	// 生成された敵を表示
+	if (enemies.empty())
 	{
-		std::cout << "敵インスタンスの生成に失敗しました。" << std::endl;
-		return 0;
+		std::cout << "敵を生成できませんでした。" << std::endl;
+	}
+	else
+	{
+		std::cout << "=== 生成された敵（ランダム4体） ===" << std::endl;
+		for (size_t i = 0; i < enemies.size(); ++i)
+		{
+			const Enemy& e = *enemies[i];
+			std::cout << "[" << (i + 1) << "] ID: " << e.Data.ID
+				<< "  Name: " << e.Data.Name
+				<< "  HP: " << e.Data.HP
+				<< "  ATK: " << e.Data.ATK
+				<< "  DEF: " << e.Data.DEF
+				<< "  SPD: " << e.Data.SPD
+				<< "  Gold: " << e.Data.Gold
+				<< "  EXP: " << e.Data.EXP
+				<< "  Crit: " << e.Data.CriticalRate
+				<< "  Element: " << ElementToString(e.Data.Element)
+				<< std::endl;
+		}
+
+		// 生成された数で平均を計算
+		double averageATK = 0.0;
+		if (!enemies.empty())
+		{
+			averageATK = static_cast<double>(totalATK) / static_cast<double>(enemies.size());
+		}
+
+		std::cout << std::endl;
+		std::cout << "合計 HP (生成された敵): " << totalHP << std::endl;
+		std::cout << "平均 ATK (生成された敵): " << std::fixed << std::setprecision(2) << averageATK << std::endl;
 	}
 
-	std::cout << "=== ランダム選択された敵 ===" << std::endl;
-	std::cout << "ID: " << chosenEnemy->Data.ID << std::endl;
-	std::cout << "Name: " << chosenEnemy->Data.Name << std::endl;
-	std::cout << "HP: " << chosenEnemy->Data.HP << std::endl;
-	std::cout << "ATK: " << chosenEnemy->Data.ATK << std::endl;
-	std::cout << "DEF: " << chosenEnemy->Data.DEF << std::endl;
-	std::cout << "SPD: " << chosenEnemy->Data.SPD << std::endl;
-	std::cout << "Gold: " << chosenEnemy->Data.Gold << std::endl;
-	std::cout << "EXP: " << chosenEnemy->Data.EXP << std::endl;
-	std::cout << "CriticalRate: " << chosenEnemy->Data.CriticalRate << std::endl;
-	std::cout << "Element: " << ElementToString(chosenEnemy->Data.Element) << std::endl;
-
-	double averageATK = static_cast<double>(totalATK) / static_cast<double>(tableSize);
-	std::cout << std::endl;
-	std::cout << "合計 HP: " << totalHP << std::endl;
-	std::cout << "平均 ATK: " << std::fixed << std::setprecision(2) << averageATK << std::endl;
-
-	// unique_ptr により自動で解放される
+	// unique_ptr により自動解放
 	return 0;
 }
 

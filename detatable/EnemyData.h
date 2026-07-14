@@ -17,9 +17,4 @@ struct EnemyData
 	int EXP;
 	int CriticalRate;
 	Element Element;
-
-
-
-
-
 };
